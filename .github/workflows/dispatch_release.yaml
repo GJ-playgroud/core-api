@@ -24,16 +24,24 @@ jobs:
       - name: echo
         run: echo "hi"
 
-      - name: Notice when job fails
-        if: failure()
-        uses: 8398a7/action-slack@v3.15.0
+  tagging:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          status: ${{job.status}}
-          fields: repo,workflow,job
-          author_name: Github Action Slack
+          ref: ${{ env.BRANCH }}
+
+      - name: tagging
+        run: |
+          git config user.email admin@GJ-playgroud.com
+          git config user.name GJ-playgroud-admin
+          git tag ${{ env.VERSION }}
+          git push origin ${{ env.VERSION }}
 
   notification:
-    needs: tagging
+    needs: build_and_push
     runs-on: ubuntu-latest
     steps:
       - name: Slack
