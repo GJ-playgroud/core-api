@@ -15,7 +15,8 @@ on:
 env:
   BRANCH: ${{ github.event.inputs.branch }}
   VERSION: ${{ github.event.inputs.version }}
-  SLACK_WEBHOOK_URL: ${{secrets.SLACK_WEBHOOK_URL}}
+  PACKAGE_VERSION: ${{ github.event.inputs.version }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   build_and_push:
@@ -39,6 +40,7 @@ jobs:
 
       - name: Make all and Packaging
         run: |
+          make clean
           make all
           sudo chmod -R 777 dist
           cd dist/python
@@ -48,9 +50,10 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: ${{ secrets.PYPI_USERNAME }}
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.PYPI_PASSWORD }}
           verbose: true
-          packages-dir: dist/python/
+          packages-dir: dist/python/dist/
+
 
       - name: Push artifacts to origin master
         uses: stefanzweifel/git-auto-commit-action@v4
@@ -80,8 +83,20 @@ jobs:
           fields: repo,workflow,job
           author_name: Github Action Slack
 
+  trigger_api_doc_release:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    steps:
+      - name: task
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+          repo: cloudforet-io/api-doc
+          workflow: dispatch_release.yaml
+          inputs: '{"branch": "${{ env.BRANCH }}", "version": "${{ env.VERSION }}"}'
+
   notification:
-    needs: tagging
+    needs: build_and_push
     runs-on: ubuntu-latest
     steps:
       - name: Slack
